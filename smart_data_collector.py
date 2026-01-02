@@ -40,7 +40,7 @@ if not file_exists:
 # --- ARDUINO CONNECTION ---
 ser = None
 s_dist = 999
-s_vals = [0.0] * 9
+s_vals = [0.0] * 8  # gps_lat, gps_lon, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z
 
 def connect_arduino():
     global ser
@@ -74,9 +74,9 @@ def read_sensors():
             line = ser.readline().decode('utf-8', errors='ignore').strip()
             if line.startswith("START") and line.endswith("END"):
                 parts = line.split(',')
-                if len(parts) >= 10:
+                if len(parts) >= 11:  # START + dist + 8 sensors + END = 11
                     s_dist = int(parts[1])
-                    s_vals = [float(x) for x in parts[2:11]]
+                    s_vals = [float(x) for x in parts[2:10]]  # lat,lon,acc(3),gyro(3) = 8 values
     except: pass
 
 # --- HIGH RES PIPELINE (640x480) ---

@@ -4,7 +4,7 @@ import sys
 
 # --- CONFIGURATION ---
 # The name of the scaler file created by your training script
-SCALER_FILENAME = "sequenced_scaler.pkl" 
+SCALER_FILENAME = "vga_scaler.pkl" 
 
 print(f"--- Scaler Extraction Tool ---")
 print(f"Looking for: {SCALER_FILENAME}")

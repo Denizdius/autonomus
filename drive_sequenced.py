@@ -12,9 +12,9 @@ BAUD_RATE = 115200
 BASE_SPEED = 120  # Start conservative for 6V 620RPM motors
 STEER_GAIN = 150  # Reduced for smoother control 
 
-# --- MANUAL SCALER VALUES (From your extraction) ---
-SCALER_MEAN = [398.08196721311475, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-SCALER_SCALE = [421.8380660124374, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+# --- MANUAL SCALER VALUES (From scaler.py extraction) ---
+SCALER_MEAN = [148.32751091703057, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+SCALER_SCALE = [239.56219562991816, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
 # --- MANUAL SCALER CLASS ---
 class ManualScaler:
@@ -85,17 +85,36 @@ try:
     ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=0.01)
     time.sleep(2)
     ser.reset_input_buffer()
+    print(f"Connected to {SERIAL_PORT}")
 except Exception as e:
     print(f"Serial Error: {e}")
-    exit()
+    # Try alternate ports
+    for port in ['/dev/ttyUSB0', '/dev/ttyUSB1', '/dev/ttyACM0', '/dev/ttyACM1']:
+        try:
+            ser = serial.Serial(port, BAUD_RATE, timeout=0.01)
+            time.sleep(2)
+            ser.reset_input_buffer()
+            print(f"Connected to {port}")
+            break
+        except:
+            continue
+    else:
+        print("ERROR: No Arduino found!")
+        exit()
 
 # Sensor Store
-sensor_data = np.zeros(9) 
+sensor_data = np.zeros(9)
+last_cmd_time = time.time()  # Track command timing
 
 def send_cmd(left, right):
+    global last_cmd_time
     cmd = f"<{int(left)},{int(right)}>"
     try:
         ser.write(cmd.encode('utf-8'))
+        ser.flush()  # Ensure data is sent immediately
+        last_cmd_time = time.time()
+    except serial.SerialException as e:
+        print(f"Serial write error: {e}")
     except:
         pass
 

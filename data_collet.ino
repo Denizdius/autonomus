@@ -42,7 +42,9 @@ const byte numChars = 32;
 char receivedChars[numChars];
 boolean newData = false;
 unsigned long lastSensorTime = 0;
+unsigned long lastCommandTime = 0;  // WATCHDOG: Track last command received
 const int SENSOR_INTERVAL = 50; // Send sensors every 50ms (20Hz) for real-time driving
+const int COMMAND_TIMEOUT = 500; // WATCHDOG: Stop motors if no command for 500ms
 int currentDistance = 999;
 int16_t ax, ay, az, gx, gy, gz;
 
@@ -65,12 +67,18 @@ void loop() {
   if (newData) {
     parseData();
     newData = false;
+    lastCommandTime = millis();  // WATCHDOG: Reset timer on valid command
   }
 
-  // 2. Read GPS
+  // 2. WATCHDOG: Stop motors if no command received for too long
+  if (millis() - lastCommandTime > COMMAND_TIMEOUT) {
+    setMotors(0, 0);  // Safety stop
+  }
+
+  // 3. Read GPS
   while (Serial1.available() > 0) gps.encode(Serial1.read());
 
-  // 3. Send Sensor Data (20Hz for real-time response)
+  // 4. Send Sensor Data (20Hz for real-time response)
   if (millis() - lastSensorTime > SENSOR_INTERVAL) {
     readAndReport();
     lastSensorTime = millis();

@@ -55,10 +55,9 @@ IMG_HEIGHT = 480
 SHOW_PREVIEW = True   # Show camera preview (requires display)
 VERBOSE = True        # Print debug info
 
-# Scaler Values - UPDATE THESE after running scaler.py on your trained model!
-# These are placeholders - you MUST update with your actual values
-SCALER_MEAN = [398.08, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-SCALER_SCALE = [421.84, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+# Scaler Values - Updated from scaler.py extraction
+SCALER_MEAN = [148.32751091703057, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+SCALER_SCALE = [239.56219562991816, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
 # ============================================================================
 # HELPER CLASSES
