@@ -13,8 +13,8 @@ BASE_SPEED = 120  # Start conservative for 6V 620RPM motors
 STEER_GAIN = 150  # Reduced for smoother control 
 
 # --- MANUAL SCALER VALUES (From scaler.py extraction) ---
-SCALER_MEAN = [148.32751091703057, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-SCALER_SCALE = [239.56219562991816, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+SCALER_MEAN = [610.9863945578231, 0.0, 0.0, 0.7589795918367351, -0.7293197278911563, 3.1393197278911606, -6.6284353741496576, -6.011950113378683, -6.999297052154189]
+SCALER_SCALE = [425.87855549743256, 1.0, 1.0, 1.9902980330479252, 3.68364485890359, 5.623753073366564, 27.678314555711555, 29.323319206022408, 34.25960874804837]
 
 # --- MANUAL SCALER CLASS ---
 class ManualScaler:
@@ -159,16 +159,27 @@ if not cap.isOpened():
 print("--- STARTING DRIVE LOOP ---")
 time.sleep(2) # Give camera time to warm up
 
+# Warm up CUDA with a dummy inference
+print("Warming up CUDA...")
+dummy_img = torch.zeros(1, 3, 480, 640).to(DEVICE)
+dummy_sens = torch.zeros(1, 9).to(DEVICE)
+with torch.no_grad():
+    _ = model(dummy_img, dummy_sens)
+print("CUDA ready!")
+
+frame_count = 0
+start_time = time.time()
+
 try:
     while True:
-        # print("DEBUG: Reading Sensors...") 
         read_sensors()
         
-        # print("DEBUG: Reading Frame...")
         ret, frame = cap.read()
         if not ret: 
             print("Camera Fail: No frame received from cap.read()")
             break
+        
+        frame_count += 1
         
         # 1. Preprocess Image
         img = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV)
@@ -191,13 +202,18 @@ try:
         left_motor = BASE_SPEED + turn_val
         right_motor = BASE_SPEED - turn_val
         
+        # Calculate FPS every 10 frames
+        if frame_count % 10 == 0:
+            fps = frame_count / (time.time() - start_time)
+            print(f"FPS: {fps:.1f}")
+        
         # Safety: Stop if wall < 20cm
         if sensor_data[0] < 20: 
             send_cmd(0, 0)
-            print(f"OBSTACLE STOP ({sensor_data[0]}cm)")
+            print(f"OBSTACLE STOP ({sensor_data[0]:.0f}cm)")
         else:
             send_cmd(left_motor, right_motor)
-            print(f"AI: {steering:.2f} | D:{sensor_data[0]}cm")
+            print(f"AI: {steering:.2f} | L:{left_motor:.0f} R:{right_motor:.0f} | D:{sensor_data[0]:.0f}cm")
             
         if cv2.waitKey(1) & 0xFF == ord('q'): break
 

@@ -56,8 +56,8 @@ SHOW_PREVIEW = True   # Show camera preview (requires display)
 VERBOSE = True        # Print debug info
 
 # Scaler Values - Updated from scaler.py extraction
-SCALER_MEAN = [148.32751091703057, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-SCALER_SCALE = [239.56219562991816, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+SCALER_MEAN = [347.07801418439715, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+SCALER_SCALE = [392.2560509624089, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
 # ============================================================================
 # HELPER CLASSES
