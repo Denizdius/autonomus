@@ -182,19 +182,38 @@ Install via Arduino Library Manager:
 ```
 autonomus/
 ├── data_collet.ino          # Arduino firmware for sensors & motors
+├── path_follower.ino        # Arduino firmware for path playback (simpler)
 ├── smart_data_collector.py   # Data collection script (runs on Jetson)
 ├── train.py                  # Model training script (runs on PC)
-├── drive_sequenced.py        # Autonomous driving script (runs on Jetson)
+├── drive_sequenced.py        # Autonomous driving with AI (runs on Jetson)
+├── record_path.py            # Record robot path with WASD keys (NEW)
+├── playback_path.py          # Playback recorded path autonomously (NEW)
 ├── scaler.py                 # Utility to extract scaler values
-├── debug_autonomous.py       # Diagnostic tool (NEW)
-├── drive_improved.py         # Improved autonomous driver (NEW)
+├── debug_autonomous.py       # Diagnostic tool
+├── drive_improved.py         # Improved autonomous driver
 ├── dataset_vga/              # Collected training data
 │   ├── log.csv               # Sensor & command log
 │   └── img_*.jpg             # Training images
+├── recorded_path.json        # Saved path for playback (generated)
 ├── vga_pilot.pth             # Trained model weights
 ├── vga_scaler.pkl            # Sensor normalization values
 └── README.md                 # This file
 ```
+
+---
+
+## 🎮 Two Autonomous Modes
+
+### Mode 1: AI Camera Navigation (Advanced)
+Uses trained neural network + camera for intelligent navigation.
+- Requires: Camera, trained model, lots of data
+- Scripts: `smart_data_collector.py` → `train.py` → `drive_sequenced.py`
+
+### Mode 2: Path Recording & Playback (Simple & Reliable)
+Records your manual driving and replays it exactly.
+- Requires: Just motors and ultrasonic sensor
+- Scripts: `record_path.py` → `playback_path.py`
+- **Perfect for indoor use or when camera has issues!**
 
 ---
 
@@ -285,7 +304,55 @@ sudo systemctl restart nvargus-daemon
 
 ## 📖 Usage Guide
 
-### Phase 1: Data Collection (On Jetson Nano)
+### 🎮 OPTION A: Path Recording (Simple & Reliable)
+
+This method records your driving and replays it exactly - no camera or AI needed!
+
+#### Step 1: Record a Path
+
+```bash
+cd ~/autonomus
+python3 record_path.py
+```
+
+**Controls:**
+| Key | Action |
+|-----|--------|
+| `W` | Forward |
+| `S` | Backward |
+| `A` | Turn Left |
+| `D` | Turn Right |
+| `SPACE` | Stop |
+| `Q` | Quit & Save |
+
+Drive the robot from start to destination. Press Q when done.
+This saves the path to `recorded_path.json`.
+
+#### Step 2: Playback Autonomously
+
+```bash
+# Single run to target
+python3 playback_path.py
+
+# Go to target and return to base
+python3 playback_path.py --reverse
+
+# Continuous loop (target → base → target...)
+python3 playback_path.py --loop
+
+# Slower speed (0.5 = half speed)
+python3 playback_path.py --speed 0.7
+```
+
+**Controls during playback:**
+- `SPACE` = Pause/Resume
+- `Q` = Stop immediately
+
+---
+
+### 🤖 OPTION B: AI Camera Navigation (Advanced)
+
+#### Phase 1: Data Collection (On Jetson Nano)
 
 ```bash
 # SSH into Jetson or use terminal
