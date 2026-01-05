@@ -9,8 +9,8 @@ import torch.nn as nn
 MODEL_PATH = "vga_pilot.pth"  # Updated to match train.py output
 SERIAL_PORT = '/dev/ttyUSB0' 
 BAUD_RATE = 115200
-BASE_SPEED = 120  # Start conservative for 6V 620RPM motors
-STEER_GAIN = 150  # Reduced for smoother control 
+BASE_SPEED = 255  # Maximum speed
+STEER_GAIN = 180  # Increased for sharper turns at high speed 
 
 # --- MANUAL SCALER VALUES (From scaler.py extraction) ---
 SCALER_MEAN = [610.9863945578231, 0.0, 0.0, 0.7589795918367351, -0.7293197278911563, 3.1393197278911606, -6.6284353741496576, -6.011950113378683, -6.999297052154189]

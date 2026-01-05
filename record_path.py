@@ -34,8 +34,8 @@ BAUD_RATE = 115200
 PATH_FILE = "recorded_path.json"
 
 # Motor Speeds
-SPEED_FWD = 200       # Forward/backward speed
-SPEED_TURN = 180      # Turning speed
+SPEED_FWD = 255       # Maximum speed
+SPEED_TURN = 255      # Maximum speed
 SPEED_STOP = 0
 
 # --- ARDUINO CONNECTION ---

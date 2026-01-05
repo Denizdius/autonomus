@@ -38,10 +38,10 @@ SERIAL_PORT = None  # Auto-detect if None
 BAUD_RATE = 115200
 
 # Driving Parameters
-BASE_SPEED = 120      # Base motor speed (0-255). Start low!
-STEER_GAIN = 150      # How much steering affects motors. Start low!
-MAX_SPEED = 200       # Maximum motor speed
-MIN_SPEED = 60        # Minimum motor speed (below this motors may stall)
+BASE_SPEED = 255      # Maximum base speed
+STEER_GAIN = 180      # Increased for sharper turns at high speed
+MAX_SPEED = 255       # Maximum motor speed
+MIN_SPEED = 80        # Minimum motor speed (below this motors may stall)
 
 # Safety
 OBSTACLE_STOP_DIST = 20   # Stop if obstacle closer than this (cm)
