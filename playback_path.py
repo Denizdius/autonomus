@@ -3,17 +3,18 @@
 Path Playback Script - Autonomous Movement from Recorded Path
 ==============================================================
 This script plays back a recorded path to make the robot move autonomously.
+It uses BOTH the "to_target" and "return" paths that you recorded manually.
 
 Usage:
-    python3 playback_path.py                    # Play once to target
+    python3 playback_path.py                    # Play once: go to target, then return
     python3 playback_path.py --loop             # Continuous loop (target -> base -> target...)
-    python3 playback_path.py --reverse          # Play in reverse (return to base)
+    python3 playback_path.py --target-only      # Only go to target (no return)
+    python3 playback_path.py --return-only      # Only return to base
     python3 playback_path.py --file mypath.json # Use specific path file
 
 Controls during playback:
     SPACE - Pause/Resume
     Q - Quit immediately
-    R - Reverse direction (toggle)
 """
 
 import serial
@@ -235,7 +236,8 @@ def main():
     parser = argparse.ArgumentParser(description='Playback recorded robot path')
     parser.add_argument('--file', '-f', default=DEFAULT_PATH_FILE, help='Path file to use')
     parser.add_argument('--loop', '-l', action='store_true', help='Continuous loop mode')
-    parser.add_argument('--reverse', '-r', action='store_true', help='Play in reverse (return to base)')
+    parser.add_argument('--target-only', '-t', action='store_true', help='Only go to target (no return)')
+    parser.add_argument('--return-only', '-r', action='store_true', help='Only return to base')
     parser.add_argument('--speed', '-s', type=float, default=1.0, help='Speed multiplier (0.5-2.0)')
     args = parser.parse_args()
     
@@ -247,17 +249,39 @@ def main():
     if not path_data:
         sys.exit(1)
     
-    commands = path_data["commands"]
+    # Support both old format (single "commands") and new format ("to_target" + "return")
+    if "to_target" in path_data:
+        # New format with both paths
+        to_target_commands = path_data["to_target"]["commands"]
+        return_commands = path_data["return"]["commands"]
+        to_target_duration = path_data["to_target"]["duration"]
+        return_duration = path_data["return"]["duration"]
+    else:
+        # Old format - single path (fallback)
+        to_target_commands = path_data.get("commands", [])
+        return_commands = []
+        to_target_duration = path_data.get("total_duration", 0)
+        return_duration = 0
+    
     print("\n" + "="*50)
     print("   PATH PLAYBACK MODE")
     print("="*50)
     print(f"Path file: {args.file}")
     print(f"Recorded: {path_data.get('recorded_at', 'Unknown')}")
-    print(f"Commands: {len(commands)}")
-    print(f"Duration: {path_data.get('total_duration', 'Unknown')}s")
+    print(f"TO TARGET: {len(to_target_commands)} commands ({to_target_duration}s)")
+    print(f"RETURN:    {len(return_commands)} commands ({return_duration}s)")
     print(f"Speed: {SPEED_MULTIPLIER:.1f}x")
-    print(f"Mode: {'Loop' if args.loop else 'Reverse' if args.reverse else 'Single run'}")
+    mode_str = 'Loop' if args.loop else 'Target only' if args.target_only else 'Return only' if args.return_only else 'Full round trip'
+    print(f"Mode: {mode_str}")
     print("="*50)
+    
+    # Check if return path exists
+    if not return_commands and not args.target_only:
+        print("\n⚠️  No RETURN path recorded!")
+        print("   Use --target-only flag, or re-record with K key for return path.")
+        if not args.target_only and not args.return_only:
+            print("   Continuing with TO TARGET only...\n")
+            args.target_only = True
     
     # Connect to Arduino
     if not connect_arduino():
@@ -268,13 +292,19 @@ def main():
     tty.setcbreak(sys.stdin.fileno())
     
     try:
-        if args.reverse:
-            # Just play reverse
-            reversed_commands = reverse_path(commands)
-            play_path(reversed_commands, "RETURNING TO BASE")
+        if args.return_only:
+            # Just play return path
+            if return_commands:
+                play_path(return_commands, "RETURNING TO BASE")
+            else:
+                print("ERROR: No return path recorded!")
+        
+        elif args.target_only:
+            # Just go to target
+            play_path(to_target_commands, "TO TARGET")
         
         elif args.loop:
-            # Continuous loop
+            # Continuous loop using BOTH recorded paths
             loop_count = 0
             while True:
                 loop_count += 1
@@ -282,22 +312,29 @@ def main():
                 print(f"   LOOP {loop_count}")
                 print('='*50)
                 
-                # Go to target
-                if not play_path(commands, "TO TARGET"):
+                # Go to target (using recorded to_target path)
+                if not play_path(to_target_commands, "TO TARGET"):
                     break
                 
                 time.sleep(1)  # Brief pause at target
                 
-                # Return to base
-                reversed_commands = reverse_path(commands)
-                if not play_path(reversed_commands, "RETURNING TO BASE"):
+                # Return to base (using recorded return path)
+                if return_commands:
+                    if not play_path(return_commands, "RETURNING TO BASE"):
+                        break
+                else:
+                    print("⚠️  No return path - stopping loop")
                     break
                 
                 time.sleep(1)  # Brief pause at base
         
         else:
-            # Single run to target
-            play_path(commands, "TO TARGET")
+            # Full round trip: go to target, then return
+            if not play_path(to_target_commands, "TO TARGET"):
+                pass
+            elif return_commands:
+                time.sleep(1)
+                play_path(return_commands, "RETURNING TO BASE")
     
     except KeyboardInterrupt:
         print("\n\nInterrupted!")

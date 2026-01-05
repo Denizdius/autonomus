@@ -14,6 +14,7 @@ Controls:
     A - Turn Left
     D - Turn Right
     SPACE - Stop/Pause
+    K - Switch to RETURN mode (record the way back)
     Q - Quit and Save
     
 The recorded path is saved to 'recorded_path.json'
@@ -89,14 +90,18 @@ def main():
     print("Controls:")
     print("  W = Forward    S = Backward")
     print("  A = Left       D = Right")
-    print("  SPACE = Stop   Q = Quit & Save")
+    print("  SPACE = Stop")
+    print("  K = Switch to RETURN mode (after reaching target)")
+    print("  Q = Quit & Save")
     print("="*50)
-    print("\nRecording started! Drive the robot...\n")
+    print("\n📍 Recording TO TARGET path...\n")
     
-    # Recording storage
-    recorded_commands = []
+    # Recording storage - TWO paths now
+    to_target_commands = []
+    return_commands = []
     current_command = None
     command_start_time = None
+    recording_mode = "TO_TARGET"  # or "RETURN"
     
     # Command mapping
     key_to_motors = {
@@ -119,13 +124,44 @@ def main():
                 if current_command and command_start_time:
                     duration = time.time() - command_start_time
                     if duration > 0.05:  # Ignore very short commands
-                        recorded_commands.append({
+                        cmd_data = {
                             "action": current_command[2],
                             "left": current_command[0],
                             "right": current_command[1],
                             "duration": round(duration, 3)
-                        })
+                        }
+                        if recording_mode == "TO_TARGET":
+                            to_target_commands.append(cmd_data)
+                        else:
+                            return_commands.append(cmd_data)
                 break
+            
+            if key == 'k':
+                # Switch to RETURN mode
+                if recording_mode == "TO_TARGET":
+                    # Save current command before switching
+                    if current_command and command_start_time:
+                        duration = time.time() - command_start_time
+                        if duration > 0.05:
+                            to_target_commands.append({
+                                "action": current_command[2],
+                                "left": current_command[0],
+                                "right": current_command[1],
+                                "duration": round(duration, 3)
+                            })
+                    
+                    send_cmd(0, 0)  # Stop motors
+                    current_command = None
+                    command_start_time = None
+                    recording_mode = "RETURN"
+                    
+                    print("\n" + "="*50)
+                    print("🔄 SWITCHED TO RETURN MODE!")
+                    print("   Now drive the robot back to base.")
+                    print("   Press Q when you arrive at base.")
+                    print("="*50 + "\n")
+                    print("📍 Recording RETURN path...\n")
+                continue
             
             if key in key_to_motors:
                 new_command = key_to_motors[key]
@@ -134,12 +170,16 @@ def main():
                 if current_command and command_start_time:
                     duration = time.time() - command_start_time
                     if duration > 0.05:  # Ignore very short commands
-                        recorded_commands.append({
+                        cmd_data = {
                             "action": current_command[2],
                             "left": current_command[0],
                             "right": current_command[1],
                             "duration": round(duration, 3)
-                        })
+                        }
+                        if recording_mode == "TO_TARGET":
+                            to_target_commands.append(cmd_data)
+                        else:
+                            return_commands.append(cmd_data)
                 
                 # Start new command
                 current_command = new_command
@@ -150,7 +190,9 @@ def main():
                 last_left, last_right = left, right
                 
                 elapsed = time.time() - recording_start
-                print(f"[{elapsed:6.1f}s] {action:8} | L:{left:4} R:{right:4} | Commands: {len(recorded_commands)}")
+                mode_indicator = "→ TARGET" if recording_mode == "TO_TARGET" else "← RETURN"
+                cmd_count = len(to_target_commands) if recording_mode == "TO_TARGET" else len(return_commands)
+                print(f"[{elapsed:6.1f}s] {mode_indicator} | {action:8} | L:{left:4} R:{right:4} | Cmds: {cmd_count}")
             
             time.sleep(0.01)  # Small delay to prevent CPU overload
     
@@ -164,15 +206,25 @@ def main():
         # Restore terminal
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
         
-        # Save recorded path
-        if recorded_commands:
-            total_time = sum(cmd["duration"] for cmd in recorded_commands)
+        # Save recorded paths
+        if to_target_commands or return_commands:
+            to_target_time = sum(cmd["duration"] for cmd in to_target_commands)
+            return_time = sum(cmd["duration"] for cmd in return_commands)
+            total_time = to_target_time + return_time
             
             path_data = {
                 "recorded_at": datetime.now().isoformat(),
                 "total_duration": round(total_time, 2),
-                "command_count": len(recorded_commands),
-                "commands": recorded_commands
+                "to_target": {
+                    "command_count": len(to_target_commands),
+                    "duration": round(to_target_time, 2),
+                    "commands": to_target_commands
+                },
+                "return": {
+                    "command_count": len(return_commands),
+                    "duration": round(return_time, 2),
+                    "commands": return_commands
+                }
             }
             
             with open(PATH_FILE, 'w') as f:
@@ -180,16 +232,28 @@ def main():
             
             print("\n" + "="*50)
             print(f"✅ PATH SAVED: {PATH_FILE}")
-            print(f"   Total commands: {len(recorded_commands)}")
-            print(f"   Total duration: {total_time:.1f} seconds")
+            print(f"   TO TARGET: {len(to_target_commands)} commands ({to_target_time:.1f}s)")
+            print(f"   RETURN:    {len(return_commands)} commands ({return_time:.1f}s)")
             print("="*50)
             
             # Show summary
-            print("\nRecorded sequence:")
-            for i, cmd in enumerate(recorded_commands[:10]):  # Show first 10
-                print(f"  {i+1}. {cmd['action']:8} for {cmd['duration']:.2f}s")
-            if len(recorded_commands) > 10:
-                print(f"  ... and {len(recorded_commands)-10} more commands")
+            if to_target_commands:
+                print("\nTO TARGET sequence:")
+                for i, cmd in enumerate(to_target_commands[:5]):
+                    print(f"  {i+1}. {cmd['action']:8} for {cmd['duration']:.2f}s")
+                if len(to_target_commands) > 5:
+                    print(f"  ... and {len(to_target_commands)-5} more")
+            
+            if return_commands:
+                print("\nRETURN sequence:")
+                for i, cmd in enumerate(return_commands[:5]):
+                    print(f"  {i+1}. {cmd['action']:8} for {cmd['duration']:.2f}s")
+                if len(return_commands) > 5:
+                    print(f"  ... and {len(return_commands)-5} more")
+            
+            if not return_commands:
+                print("\n⚠️  No RETURN path recorded!")
+                print("   Next time, press K at the target to record the return path.")
         else:
             print("\n⚠️  No commands recorded!")
 
