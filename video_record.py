@@ -106,15 +106,16 @@ def init_camera():
         print(f"Camera init failed: {e}")
         return False
 
-def record_video_landmark(landmark_id, landmarks_dir, duration=2.0):
+def record_video_landmark(landmark_id, landmarks_dir, duration=2.0, keep_moving=True, left_speed=255, right_speed=255):
     """
     Record a video clip with synchronized distance profile.
-    Returns: (video_filename, distance_profile, yaw_profile)
+    Keeps sending motor commands to prevent watchdog timeout.
+    Returns: (video_filename, sensor_data_dict)
     """
-    global camera, current_distance, current_yaw, cv2
+    global camera, current_distance, current_yaw, cv2, ser
     
     if not use_camera or camera is None:
-        return None, [], []
+        return None, {"timestamps": [], "distances": [], "yaws": []}
     
     os.makedirs(landmarks_dir, exist_ok=True)
     
@@ -134,6 +135,7 @@ def record_video_landmark(landmark_id, landmarks_dir, duration=2.0):
     
     start_time = time.time()
     frame_count = 0
+    last_cmd_time = 0
     
     while time.time() - start_time < duration:
         # Capture frame
@@ -144,6 +146,12 @@ def record_video_landmark(landmark_id, landmarks_dir, duration=2.0):
         
         # Read sensors
         read_sensors()
+        
+        # IMPORTANT: Keep sending motor commands to prevent watchdog timeout
+        # Send every 100ms to keep Arduino happy
+        if keep_moving and time.time() - last_cmd_time > 0.1:
+            send_cmd(left_speed, right_speed)
+            last_cmd_time = time.time()
         
         # Record sensor data
         elapsed = time.time() - start_time
@@ -331,8 +339,12 @@ def main():
                 
                 # Record video clip (robot continues moving!)
                 start_yaw = current_yaw
+                # Pass current motor speeds so robot keeps moving during recording
+                curr_left = current_command[0] if current_command else 0
+                curr_right = current_command[1] if current_command else 0
                 video_file, sensor_data = record_video_landmark(
-                    landmark_count, landmarks_dir, CLIP_DURATION
+                    landmark_count, landmarks_dir, CLIP_DURATION,
+                    keep_moving=True, left_speed=curr_left, right_speed=curr_right
                 )
                 
                 landmark_data = {
@@ -383,10 +395,11 @@ def main():
                     landmark_count += 1
                     print("\n📹 Recording TARGET landmark...")
                     
-                    # For target, record a stationary clip
+                    # For target, record a stationary clip (robot stopped)
                     start_yaw = current_yaw
                     video_file, sensor_data = record_video_landmark(
-                        landmark_count, landmarks_dir, CLIP_DURATION
+                        landmark_count, landmarks_dir, CLIP_DURATION,
+                        keep_moving=False, left_speed=0, right_speed=0
                     )
                     
                     target_landmark = {

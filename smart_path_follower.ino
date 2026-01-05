@@ -72,7 +72,11 @@ boolean newCommand = false;
 
 unsigned long lastCommandTime = 0;
 unsigned long lastSensorTime = 0;
+unsigned long receiveStartTime = 0;  // Track when we started receiving
 int currentDistance = 999;
+
+// Receive timeout (if we start receiving but don't get '>' in 100ms, reset)
+const unsigned long RECEIVE_TIMEOUT = 100;
 
 // Target heading for correction mode
 float targetHeading = 0.0;
@@ -127,9 +131,13 @@ void loop() {
     }
     
     // 4. Watchdog - stop if no commands received
-    if (millis() - lastCommandTime > CMD_TIMEOUT) {
-        stopMotors();
-        headingCorrectionEnabled = false;
+    unsigned long timeSinceLastCmd = millis() - lastCommandTime;
+    if (timeSinceLastCmd > CMD_TIMEOUT) {
+        if (baseLeftSpeed != 0 || baseRightSpeed != 0) {
+            // Only print once when stopping
+            stopMotors();
+            headingCorrectionEnabled = false;
+        }
     }
     
     // 5. Read and send sensor data periodically
@@ -138,6 +146,9 @@ void loop() {
         sendSensorData();
         lastSensorTime = millis();
     }
+    
+    // Small delay to prevent overwhelming the loop
+    delayMicroseconds(100);
 }
 
 // ==================== MPU6050 FUNCTIONS ====================
@@ -256,12 +267,33 @@ void receiveCommand() {
     //   <R>                - Reset yaw to 0
     //   <P,2.0,0.0,0.5>    - Set PID gains
     
+    // Check for receive timeout (parser stuck in receiving state)
+    if (receiving && (millis() - receiveStartTime > RECEIVE_TIMEOUT)) {
+        receiving = false;
+        charIndex = 0;
+        // Flush any remaining garbage
+        while (Serial.available() > 0) {
+            Serial.read();
+        }
+    }
+    
+    // Prevent buffer overflow - if too much data, flush it
+    if (Serial.available() > 60) {
+        while (Serial.available() > 0) {
+            Serial.read();
+        }
+        receiving = false;
+        charIndex = 0;
+        return;
+    }
+    
     while (Serial.available() > 0) {
         char c = Serial.read();
         
         if (c == '<') {
             receiving = true;
             charIndex = 0;
+            receiveStartTime = millis();  // Start timeout timer
         }
         else if (c == '>') {
             receiving = false;
@@ -272,8 +304,13 @@ void receiveCommand() {
             if (charIndex < 63) {
                 receivedChars[charIndex] = c;
                 charIndex++;
+            } else {
+                // Buffer overflow - reset
+                receiving = false;
+                charIndex = 0;
             }
         }
+        // Ignore characters outside of < > brackets
     }
 }
 
