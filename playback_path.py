@@ -35,7 +35,7 @@ DEFAULT_PATH_FILE = "recorded_path.json"
 SPEED_MULTIPLIER = 1.0
 
 # Safety: Stop if obstacle detected (distance in cm)
-OBSTACLE_STOP_DISTANCE = 15
+OBSTACLE_STOP_DISTANCE = 5
 
 # --- ARDUINO CONNECTION ---
 ser = None
