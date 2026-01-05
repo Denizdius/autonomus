@@ -130,29 +130,27 @@ def main():
             if key in key_to_motors:
                 new_command = key_to_motors[key]
                 
-                # If command changed, save previous and start new
-                if new_command != current_command:
-                    # Save previous command
-                    if current_command and command_start_time:
-                        duration = time.time() - command_start_time
-                        if duration > 0.05:  # Ignore very short commands
-                            recorded_commands.append({
-                                "action": current_command[2],
-                                "left": current_command[0],
-                                "right": current_command[1],
-                                "duration": round(duration, 3)
-                            })
-                    
-                    # Start new command
-                    current_command = new_command
-                    command_start_time = time.time()
-                    
-                    left, right, action = new_command
-                    send_cmd(left, right)
-                    last_left, last_right = left, right
-                    
-                    elapsed = time.time() - recording_start
-                    print(f"[{elapsed:6.1f}s] {action:8} | L:{left:4} R:{right:4} | Commands: {len(recorded_commands)}")
+                # Save previous command (even if same key - allows W, W, W)
+                if current_command and command_start_time:
+                    duration = time.time() - command_start_time
+                    if duration > 0.05:  # Ignore very short commands
+                        recorded_commands.append({
+                            "action": current_command[2],
+                            "left": current_command[0],
+                            "right": current_command[1],
+                            "duration": round(duration, 3)
+                        })
+                
+                # Start new command
+                current_command = new_command
+                command_start_time = time.time()
+                
+                left, right, action = new_command
+                send_cmd(left, right)
+                last_left, last_right = left, right
+                
+                elapsed = time.time() - recording_start
+                print(f"[{elapsed:6.1f}s] {action:8} | L:{left:4} R:{right:4} | Commands: {len(recorded_commands)}")
             
             time.sleep(0.01)  # Small delay to prevent CPU overload
     
