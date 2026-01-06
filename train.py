@@ -20,18 +20,40 @@ EPOCHS = 30
 LEARNING_RATE = 1e-4
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# --- DATASET ---
+# Data Augmentation - multiply your samples!
+AUGMENT_DATA = True  # Set to False to disable
+BRIGHTNESS_RANGE = 0.3  # Random brightness adjustment
+
+# --- DATASET WITH AUGMENTATION ---
 class RobotDataset(Dataset):
-    def __init__(self, images, sensors, steering):
+    def __init__(self, images, sensors, steering, augment=False):
         self.images = images
         self.sensors = sensors
         self.steering = steering
-    def __len__(self): return len(self.images)
+        self.augment = augment
+        
+    def __len__(self): 
+        return len(self.images)
+    
     def __getitem__(self, idx):
-        img = self.images[idx].transpose((2, 0, 1))
+        img = self.images[idx].copy()
+        steer = self.steering[idx]
+        
+        # Data augmentation (only during training)
+        if self.augment:
+            # Random horizontal flip (and flip steering!)
+            if np.random.rand() > 0.5:
+                img = np.fliplr(img).copy()
+                steer = -steer
+            
+            # Random brightness adjustment
+            brightness = 1.0 + np.random.uniform(-BRIGHTNESS_RANGE, BRIGHTNESS_RANGE)
+            img = np.clip(img * brightness, 0, 1)
+        
+        img = img.transpose((2, 0, 1))
         return (torch.tensor(img, dtype=torch.float32), 
                 torch.tensor(self.sensors[idx], dtype=torch.float32), 
-                torch.tensor(self.steering[idx], dtype=torch.float32))
+                torch.tensor(steer, dtype=torch.float32))
 
 # --- LOAD DATA ---
 print(f"Loading {LOG_FILE}...")
@@ -113,8 +135,12 @@ indices = np.arange(len(X_img))
 X_img_train, X_img_test, y_train, y_test, idx_train, idx_test = train_test_split(X_img, y, indices, test_size=0.2, random_state=42)
 X_sens_train, X_sens_test = X_sens[idx_train], X_sens[idx_test]
 
-train_loader = DataLoader(RobotDataset(X_img_train, X_sens_train, y_train), batch_size=BATCH_SIZE, shuffle=True)
-val_loader = DataLoader(RobotDataset(X_img_test, X_sens_test, y_test), batch_size=BATCH_SIZE)
+# Use augmentation for training, not for validation
+train_loader = DataLoader(RobotDataset(X_img_train, X_sens_train, y_train, augment=AUGMENT_DATA), batch_size=BATCH_SIZE, shuffle=True)
+val_loader = DataLoader(RobotDataset(X_img_test, X_sens_test, y_test, augment=False), batch_size=BATCH_SIZE)
+
+if AUGMENT_DATA:
+    print(f"📈 Data augmentation ENABLED (effectively 2x samples)")
 
 # --- MODEL ARCHITECTURE (High Res VGA) ---
 class SequencedPilot(nn.Module):
