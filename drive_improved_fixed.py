@@ -246,8 +246,8 @@ class CameraManager:
             "nvarguscamerasrc "
             "sensor-mode=4 "  # 1280x720@60fps - good quality and performance
             "saturation=1.0 "  # Default saturation
-            "gainrange="16 16" "  # Fixed gain for consistent exposure
-            "ispdigitalgainrange="1 1" "  # Fixed digital gain
+            "gainrange=\"16 16\" "  # Fixed gain for consistent exposure
+            "ispdigitalgainrange=\"1 1\" "  # Fixed digital gain
             "! "
             "video/x-raw(memory:NVMM), "
             "width=1280, height=720, "
