@@ -625,11 +625,12 @@ def main():
             elif distance < OBSTACLE_SLOW_DIST:
                 # Slow down
                 slow_factor = distance / OBSTACLE_SLOW_DIST
-                motors.set_motors(left_motor * slow_factor, right_motor * slow_factor)
+                #motors.set_motors(left_motor * slow_factor, right_motor * slow_factor)
+                print(f"L={left_motor:.0f}, R={right_motor:.0f}")
                 status = f"⚠️  SLOW ({distance:.0f}cm) | Steer: {steering:+.2f}"
             else:
                 # Normal driving
-                motors.set_motors(left_motor, right_motor)
+                #motors.set_motors(left_motor, right_motor)
                 status = f"🚗 DRIVING | Steer: {steering:+.2f} | L:{left_motor:.0f} R:{right_motor:.0f}"
             
             # Calculate FPS
