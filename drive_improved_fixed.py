@@ -244,7 +244,7 @@ class CameraManager:
         # This provides better image quality than native 640x480 sensor mode
         return (
             "nvarguscamerasrc "
-            "sensor-mode=2 "  # 1280x720@60fps - good quality and performance
+            "sensor-mode=4 "  # 1280x720@60fps - good quality and performance
             "saturation=1.0 "  # Default saturation
             "gainrange=\"16 16\" "  # Fixed gain for consistent exposure
             "ispdigitalgainrange=\"1 1\" "  # Fixed digital gain
@@ -630,12 +630,12 @@ def main():
             elif distance < OBSTACLE_SLOW_DIST:
                 # Slow down
                 slow_factor = distance / OBSTACLE_SLOW_DIST
-                #motors.set_motors(left_motor * slow_factor, right_motor * slow_factor)
-                print(f"L={left_motor:.0f}, R={right_motor:.0f}")
+                motors.set_motors(left_motor * slow_factor, right_motor * slow_factor)
+                #print(f"L={left_motor:.0f}, R={right_motor:.0f}")
                 status = f"⚠️  SLOW ({distance:.0f}cm) | Steer: {steering:+.2f}"
             else:
                 # Normal driving
-                #motors.set_motors(left_motor, right_motor)
+                motors.set_motors(left_motor, right_motor)
                 status = f"🚗 DRIVING | Steer: {steering:+.2f} | L:{left_motor:.0f} R:{right_motor:.0f}"
             
             # Calculate FPS
