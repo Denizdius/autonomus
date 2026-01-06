@@ -38,9 +38,9 @@ SERIAL_PORT = None  # Auto-detect if None
 BAUD_RATE = 115200
 
 # Driving Parameters
-BASE_SPEED = 255      # Maximum base speed
-STEER_GAIN = 180      # Increased for sharper turns at high speed
-MAX_SPEED = 255       # Maximum motor speed
+BASE_SPEED = 100      # Maximum base speed
+STEER_GAIN = 120      # Increased for sharper turns at high speed
+MAX_SPEED = 200      # Maximum motor speed
 MIN_SPEED = 80        # Minimum motor speed (below this motors may stall)
 
 # Safety
@@ -56,8 +56,8 @@ SHOW_PREVIEW = False  # Disable for SSH (no display)
 VERBOSE = True        # Print debug info
 
 # Scaler Values - Updated from scaler.py extraction
-SCALER_MEAN = [347.07801418439715, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-SCALER_SCALE = [392.2560509624089, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+SCALER_MEAN = [999.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+SCALER_SCALE = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
 # ============================================================================
 # HELPER CLASSES
@@ -175,13 +175,13 @@ def create_gstreamer_pipeline(width, height):
     # Use sensor-mode=3 for 1640x1232@30fps - stable and good quality
     # Simple pipeline without extra parameters
     return (
-        f"nvarguscamerasrc sensor-mode=3 ! "
-        f"video/x-raw(memory:NVMM), width=1640, height=1232, format=NV12, framerate=30/1 ! "
+        f"nvarguscamerasrc sensor-mode=4 saturation=1.0 gainrange=\"1 1\" ! "
+        f"video/x-raw(memory:NVMM), width=1280, height=720, format=NV12, framerate=30/1 ! "
         f"nvvidconv flip-method=0 ! "
         f"video/x-raw, width={width}, height={height}, format=BGRx ! "
         f"videoconvert ! "
         f"video/x-raw, format=BGR ! "
-        f"appsink drop=true sync=false max-buffers=2"
+        f"appsink drop=true sync=false max-buffers=3 emit-signals=false"
     )
 
 def preprocess_image(frame):
@@ -278,6 +278,7 @@ def main():
         ret, frame = cap.read()
         if ret and frame is not None:
             warmup_success = True
+            break
         time.sleep(0.05)
     
     if not warmup_success:
@@ -393,7 +394,7 @@ def main():
             
             # Print status
             if VERBOSE:
-                print(f"\r{status} | FPS: {fps:.1f} | Dist: {distance:.0f}cm", end="")
+                print(f"\r{status} | FPS: {fps:.1f} | Dist: {distance:.0f}cm", end="", flush=True)
             
             # Show preview if enabled
             if show_preview:
