@@ -34,9 +34,9 @@ from datetime import datetime
 BAUD_RATE = 115200
 PATH_FILE = "recorded_path.json"
 
-# Motor Speeds
-SPEED_FWD = 255       # Maximum speed
-SPEED_TURN = 255      # Maximum speed
+# Motor Speeds (150 = ~1 m/s, adjust as needed)
+SPEED_FWD = 150       # Forward/Backward speed
+SPEED_TURN = 150      # Turn speed
 SPEED_STOP = 0
 
 # --- ARDUINO CONNECTION ---

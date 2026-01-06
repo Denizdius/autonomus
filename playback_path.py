@@ -34,8 +34,17 @@ DEFAULT_PATH_FILE = "recorded_path.json"
 # Speed multiplier (1.0 = same as recorded, 0.8 = slower, 1.2 = faster)
 SPEED_MULTIPLIER = 1.0
 
+# Target speed (lower for ~1 m/s - adjust based on your motors)
+# 255 = max, 150 = ~60% power, should be around 1 m/s
+SPEED_NORMAL = 150
+
 # Safety: Stop if obstacle detected (distance in cm)
-OBSTACLE_STOP_DISTANCE = 5
+OBSTACLE_STOP_DISTANCE = 15
+
+# Obstacle avoidance: if blocked for this many seconds, back up and turn
+OBSTACLE_TIMEOUT = 10.0
+BACKUP_DURATION = 1.0    # Seconds to back up
+TURN_DURATION = 1.5      # Seconds to turn right
 
 # --- ARDUINO CONNECTION ---
 ser = None
@@ -93,6 +102,27 @@ def get_key_nonblocking():
     if select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], []):
         return sys.stdin.read(1)
     return None
+
+def avoid_obstacle():
+    """Back up and turn right to avoid obstacle"""
+    print("🔄 Avoiding obstacle: backing up...")
+    
+    # Back up
+    start = time.time()
+    while time.time() - start < BACKUP_DURATION:
+        send_cmd(-SPEED_NORMAL, -SPEED_NORMAL)
+        time.sleep(0.1)
+    
+    # Turn right (swing turn: left forward, right stopped)
+    print("🔄 Turning right to avoid...")
+    start = time.time()
+    while time.time() - start < TURN_DURATION:
+        send_cmd(SPEED_NORMAL, 0)
+        time.sleep(0.1)
+    
+    send_cmd(0, 0)
+    print("✅ Avoidance complete, continuing path...")
+    time.sleep(0.3)
 
 def load_path(filepath):
     """Load recorded path from JSON file"""
@@ -177,13 +207,20 @@ def play_path(commands, direction_name="TO TARGET"):
         if sensor_distance < OBSTACLE_STOP_DISTANCE and cmd["left"] > 0 and cmd["right"] > 0:
             send_cmd(0, 0)
             print(f"⚠️  OBSTACLE at {sensor_distance}cm! Waiting...")
-            while sensor_distance < OBSTACLE_STOP_DISTANCE + 10:
+            obstacle_start = time.time()
+            while sensor_distance < OBSTACLE_STOP_DISTANCE + 5:
                 read_sensors()
                 time.sleep(0.1)
                 key = get_key_nonblocking()
                 if key == 'q':
                     return False
-            print("✅ Path clear, continuing...")
+                # Check if blocked for too long
+                if time.time() - obstacle_start >= OBSTACLE_TIMEOUT:
+                    print(f"⏰ Blocked for {OBSTACLE_TIMEOUT}s - avoiding obstacle!")
+                    avoid_obstacle()
+                    break
+            if sensor_distance >= OBSTACLE_STOP_DISTANCE + 5:
+                print("✅ Path clear, continuing...")
         
         # Execute command
         action = cmd["action"]
@@ -225,7 +262,19 @@ def play_path(commands, direction_name="TO TARGET"):
             read_sensors()
             if sensor_distance < OBSTACLE_STOP_DISTANCE and left > 0 and right > 0:
                 send_cmd(0, 0)
-                print(f"⚠️  OBSTACLE!")
+                print(f"⚠️  OBSTACLE during movement!")
+                obstacle_start = time.time()
+                while sensor_distance < OBSTACLE_STOP_DISTANCE + 5:
+                    read_sensors()
+                    time.sleep(0.1)
+                    key = get_key_nonblocking()
+                    if key == 'q':
+                        return False
+                    if time.time() - obstacle_start >= OBSTACLE_TIMEOUT:
+                        print(f"⏰ Blocked for {OBSTACLE_TIMEOUT}s - avoiding obstacle!")
+                        avoid_obstacle()
+                        break
+                # Don't continue this command, move to next one
                 break
     
     send_cmd(0, 0)
