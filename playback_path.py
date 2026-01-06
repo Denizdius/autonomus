@@ -38,7 +38,7 @@ SPEED_MULTIPLIER = 1.0
 OBSTACLE_STOP_DISTANCE = 5
 
 # 180° Turn Configuration (must match record_path.py setting)
-TURN_180_DURATION = 1.0  # seconds - ADJUST THIS for your robot!
+TURN_180_DURATION = 2.5  # seconds - ADJUST THIS for your robot!
 TURN_SPEED = 255          # Speed for turning
 
 # --- ARDUINO CONNECTION ---

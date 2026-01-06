@@ -41,7 +41,7 @@ SPEED_STOP = 0
 
 # 180° Turn Configuration (adjust TURN_180_DURATION to match your robot)
 # This is how long it takes your robot to turn 180° at full speed
-TURN_180_DURATION = 1.0  # seconds - ADJUST THIS for your robot!
+TURN_180_DURATION = 2.5  # seconds - ADJUST THIS for your robot!
 
 # --- ARDUINO CONNECTION ---
 ser = None
