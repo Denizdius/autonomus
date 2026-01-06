@@ -38,7 +38,7 @@ SPEED_MULTIPLIER = 1.0
 OBSTACLE_STOP_DISTANCE = 5
 
 # 180° Turn Configuration (must match record_path.py setting)
-TURN_180_DURATION = 2.5  # seconds - ADJUST THIS for your robot!
+TURN_180_DURATION = 6.0  # seconds - ADJUST THIS for your robot!
 TURN_SPEED = 255          # Speed for turning
 
 # --- ARDUINO CONNECTION ---
@@ -81,11 +81,16 @@ def do_180_turn():
     global ser
     if ser:
         print("\n🔄 Performing 180° turn...")
-        # Swing turn right: left motor forward, right motor stopped
-        cmd = f"<{TURN_SPEED},0>"
-        ser.write(cmd.encode('utf-8'))
-        ser.flush()
-        time.sleep(TURN_180_DURATION)
+        
+        # Send commands continuously to prevent Arduino watchdog timeout (500ms)
+        start_time = time.time()
+        while time.time() - start_time < TURN_180_DURATION:
+            # Swing turn right: left motor forward, right motor stopped
+            cmd = f"<{TURN_SPEED},0>"
+            ser.write(cmd.encode('utf-8'))
+            ser.flush()
+            time.sleep(0.1)  # Send every 100ms (well within 500ms timeout)
+        
         ser.write(b"<0,0>")
         ser.flush()
         print("✅ Turn complete!\n")

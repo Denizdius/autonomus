@@ -41,7 +41,7 @@ SPEED_STOP = 0
 
 # 180° Turn Configuration (adjust TURN_180_DURATION to match your robot)
 # This is how long it takes your robot to turn 180° at full speed
-TURN_180_DURATION = 2.5  # seconds - ADJUST THIS for your robot!
+TURN_180_DURATION = 6.0  # seconds - ADJUST THIS for your robot!
 
 # --- ARDUINO CONNECTION ---
 ser = None
@@ -77,9 +77,14 @@ def send_cmd(left, right):
 def do_180_turn():
     """Perform a 180° turn (swing turn to the right)"""
     print("\n🔄 Performing 180° turn...")
-    # Swing turn right: left motor forward, right motor stopped
-    send_cmd(SPEED_TURN, 0)
-    time.sleep(TURN_180_DURATION)
+    
+    # Send commands continuously to prevent Arduino watchdog timeout (500ms)
+    start_time = time.time()
+    while time.time() - start_time < TURN_180_DURATION:
+        # Swing turn right: left motor forward, right motor stopped
+        send_cmd(SPEED_TURN, 0)
+        time.sleep(0.1)  # Send every 100ms (well within 500ms timeout)
+    
     send_cmd(0, 0)
     print("✅ Turn complete!\n")
     time.sleep(0.3)  # Brief pause to stabilize
