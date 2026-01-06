@@ -120,8 +120,8 @@ try:
             last_key_time = time.time()
             if key == 'w': left_spd, right_spd = SPEED_FWD, SPEED_FWD
             elif key == 's': left_spd, right_spd = -SPEED_FWD, -SPEED_FWD
-            elif key == 'a': left_spd, right_spd = -SPEED_TURN, SPEED_TURN
-            elif key == 'd': left_spd, right_spd = SPEED_TURN, -SPEED_TURN
+            elif key == 'a': left_spd, right_spd = 0, SPEED_TURN        # Swing left
+            elif key == 'd': left_spd, right_spd = SPEED_TURN, 0        # Swing right
         elif key == 'c': left_spd, right_spd = 0, 0
         elif key == 'q': break
         

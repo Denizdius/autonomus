@@ -33,6 +33,11 @@
 
 #include <Wire.h>
 
+// --- I2C TIMEOUT ---
+const unsigned long I2C_TIMEOUT = 1000;  // 1ms timeout for I2C operations
+bool imuAvailable = true;                 // Track if IMU is responding
+unsigned long lastIMUSuccess = 0;         // Last successful IMU read
+
 // --- MOTOR PINS ---
 const int ENA = 2;
 const int IN1 = 22;
@@ -140,7 +145,14 @@ void loop() {
         }
     }
     
-    // 5. Read and send sensor data periodically
+    // 5. Try to recover I2C if IMU has been failing for too long
+    if (!imuAvailable && (millis() - lastIMUSuccess > 5000)) {
+        resetI2C();
+        initMPU6050();
+        lastIMUSuccess = millis();  // Reset timer to avoid constant resets
+    }
+    
+    // 6. Read and send sensor data periodically
     if (millis() - lastSensorTime > SENSOR_INTERVAL) {
         readDistance();
         sendSensorData();
@@ -154,11 +166,20 @@ void loop() {
 // ==================== MPU6050 FUNCTIONS ====================
 
 void initMPU6050() {
+    // Set I2C timeout (some Arduino cores support this)
+    Wire.setWireTimeout(I2C_TIMEOUT, true);  // timeout in microseconds, reset on timeout
+    
     // Wake up MPU6050
     Wire.beginTransmission(MPU_ADDR);
     Wire.write(0x6B);  // PWR_MGMT_1 register
     Wire.write(0x00);  // Wake up
-    Wire.endTransmission(true);
+    byte error = Wire.endTransmission(true);
+    
+    if (error != 0) {
+        Serial.println("WARNING: MPU6050 not found!");
+        imuAvailable = false;
+        return;
+    }
     
     // Set gyro range to ±250°/s for better precision
     Wire.beginTransmission(MPU_ADDR);
@@ -166,7 +187,10 @@ void initMPU6050() {
     Wire.write(0x00);  // ±250°/s
     Wire.endTransmission(true);
     
+    imuAvailable = true;
+    lastIMUSuccess = millis();
     delay(100);
+    Serial.println("MPU6050 initialized OK");
 }
 
 void calibrateGyro() {
@@ -174,33 +198,82 @@ void calibrateGyro() {
     
     float sum = 0;
     int samples = 500;
+    int validSamples = 0;
     
     for (int i = 0; i < samples; i++) {
-        Wire.beginTransmission(MPU_ADDR);
-        Wire.write(0x47);  // GYRO_ZOUT_H
-        Wire.endTransmission(false);
-        Wire.requestFrom(MPU_ADDR, 2, true);
-        
-        int16_t gyroZ = Wire.read() << 8 | Wire.read();
-        sum += gyroZ / 131.0;  // Convert to °/s
+        int16_t gyroZ = readGyroZ();
+        if (imuAvailable) {
+            sum += gyroZ / 131.0;  // Convert to °/s
+            validSamples++;
+        }
         delay(2);
     }
     
-    gyroZOffset = sum / samples;
-    Serial.print("Gyro Z offset: ");
-    Serial.println(gyroZOffset);
+    if (validSamples > 0) {
+        gyroZOffset = sum / validSamples;
+        Serial.print("Gyro Z offset: ");
+        Serial.println(gyroZOffset);
+        Serial.print("Valid samples: ");
+        Serial.println(validSamples);
+    } else {
+        Serial.println("WARNING: IMU not responding!");
+        gyroZOffset = 0;
+        imuAvailable = false;
+    }
     
     lastIMUTime = micros();
 }
 
-void updateIMU() {
-    // Read gyroscope Z axis
+// Safe I2C read for gyro Z with timeout
+int16_t readGyroZ() {
     Wire.beginTransmission(MPU_ADDR);
     Wire.write(0x47);  // GYRO_ZOUT_H
-    Wire.endTransmission(false);
-    Wire.requestFrom(MPU_ADDR, 2, true);
+    byte error = Wire.endTransmission(false);
     
-    int16_t gyroZ = Wire.read() << 8 | Wire.read();
+    if (error != 0) {
+        // I2C transmission failed
+        imuAvailable = false;
+        return 0;
+    }
+    
+    byte bytesReceived = Wire.requestFrom(MPU_ADDR, (uint8_t)2, (uint8_t)true);
+    
+    if (bytesReceived != 2) {
+        // Didn't receive expected bytes
+        imuAvailable = false;
+        // Flush any partial data
+        while (Wire.available()) Wire.read();
+        return 0;
+    }
+    
+    // Wait for data with timeout
+    unsigned long startWait = micros();
+    while (Wire.available() < 2) {
+        if (micros() - startWait > I2C_TIMEOUT) {
+            imuAvailable = false;
+            return 0;
+        }
+    }
+    
+    imuAvailable = true;
+    lastIMUSuccess = millis();
+    return Wire.read() << 8 | Wire.read();
+}
+
+void updateIMU() {
+    // Skip if IMU has been failing (try again every 1 second)
+    if (!imuAvailable && (millis() - lastIMUSuccess < 1000)) {
+        return;
+    }
+    
+    // Read gyroscope Z axis with timeout protection
+    int16_t gyroZ = readGyroZ();
+    
+    if (!imuAvailable) {
+        // IMU read failed, skip this update
+        return;
+    }
+    
     float gyroZRate = (gyroZ / 131.0) - gyroZOffset;  // °/s
     
     // Integrate to get yaw angle
@@ -473,10 +546,21 @@ void readDistance() {
 }
 
 void sendSensorData() {
-    // Format: START,distance,yaw,END
+    // Format: START,distance,yaw,imuOK,END
     Serial.print("START,");
     Serial.print(currentDistance);
     Serial.print(",");
     Serial.print(yaw, 2);
+    Serial.print(",");
+    Serial.print(imuAvailable ? 1 : 0);  // Report IMU status
     Serial.println(",END");
+}
+
+// Reset I2C bus if it gets stuck
+void resetI2C() {
+    Wire.end();
+    delay(10);
+    Wire.begin();
+    Wire.setWireTimeout(I2C_TIMEOUT, true);
+    Serial.println("I2C bus reset");
 }

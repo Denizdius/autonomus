@@ -103,12 +103,12 @@ def main():
     command_start_time = None
     recording_mode = "TO_TARGET"  # or "RETURN"
     
-    # Command mapping
+    # Command mapping (Swing turns: one motor stopped, other moves)
     key_to_motors = {
         'w': (SPEED_FWD, SPEED_FWD, "FORWARD"),
         's': (-SPEED_FWD, -SPEED_FWD, "BACKWARD"),
-        'a': (-SPEED_TURN, SPEED_TURN, "LEFT"),
-        'd': (SPEED_TURN, -SPEED_TURN, "RIGHT"),
+        'a': (0, SPEED_TURN, "LEFT"),       # Stop left, right forward
+        'd': (SPEED_TURN, 0, "RIGHT"),      # Left forward, stop right
         ' ': (SPEED_STOP, SPEED_STOP, "STOP"),
     }
     
