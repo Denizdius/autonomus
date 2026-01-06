@@ -39,6 +39,10 @@ SPEED_FWD = 255       # Maximum speed
 SPEED_TURN = 255      # Maximum speed
 SPEED_STOP = 0
 
+# 180° Turn Configuration (adjust TURN_180_DURATION to match your robot)
+# This is how long it takes your robot to turn 180° at full speed
+TURN_180_DURATION = 1.0  # seconds - ADJUST THIS for your robot!
+
 # --- ARDUINO CONNECTION ---
 ser = None
 
@@ -69,6 +73,16 @@ def send_cmd(left, right):
             ser.flush()
         except:
             pass
+
+def do_180_turn():
+    """Perform a 180° turn (swing turn to the right)"""
+    print("\n🔄 Performing 180° turn...")
+    # Swing turn right: left motor forward, right motor stopped
+    send_cmd(SPEED_TURN, 0)
+    time.sleep(TURN_180_DURATION)
+    send_cmd(0, 0)
+    print("✅ Turn complete!\n")
+    time.sleep(0.3)  # Brief pause to stabilize
 
 def get_key():
     """Non-blocking key read"""
@@ -137,7 +151,7 @@ def main():
                 break
             
             if key == 'k':
-                # Switch to RETURN mode
+                # Switch to RETURN mode with 180° turn
                 if recording_mode == "TO_TARGET":
                     # Save current command before switching
                     if current_command and command_start_time:
@@ -153,14 +167,19 @@ def main():
                     send_cmd(0, 0)  # Stop motors
                     current_command = None
                     command_start_time = None
+                    
+                    # Perform 180° turn
+                    do_180_turn()
+                    
                     recording_mode = "RETURN"
                     
-                    print("\n" + "="*50)
+                    print("="*50)
                     print("🔄 SWITCHED TO RETURN MODE!")
-                    print("   Now drive the robot back to base.")
+                    print("   Robot has turned 180°.")
+                    print("   Now drive FORWARD to return to base.")
                     print("   Press Q when you arrive at base.")
                     print("="*50 + "\n")
-                    print("📍 Recording RETURN path...\n")
+                    print("📍 Recording RETURN path (drive forward!)...\n")
                 continue
             
             if key in key_to_motors:
