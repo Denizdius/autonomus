@@ -52,7 +52,7 @@ IMG_WIDTH = 640
 IMG_HEIGHT = 480
 
 # Debug
-SHOW_PREVIEW = True   # Show camera preview (requires display)
+SHOW_PREVIEW = False  # Disable for SSH (no display)
 VERBOSE = True        # Print debug info
 
 # Scaler Values - Updated from scaler.py extraction
@@ -172,13 +172,16 @@ def find_serial_port():
 
 def create_gstreamer_pipeline(width, height):
     """Create GStreamer pipeline for CSI camera"""
+    # Use sensor-mode=3 for 1640x1232@30fps - stable and good quality
+    # Simple pipeline without extra parameters
     return (
-        f"nvarguscamerasrc ! "
-        f"video/x-raw(memory:NVMM), width=1280, height=720, framerate=30/1 ! "
-        f"nvvidconv ! "
+        f"nvarguscamerasrc sensor-mode=3 ! "
+        f"video/x-raw(memory:NVMM), width=1640, height=1232, format=NV12, framerate=30/1 ! "
+        f"nvvidconv flip-method=0 ! "
         f"video/x-raw, width={width}, height={height}, format=BGRx ! "
         f"videoconvert ! "
-        f"video/x-raw, format=BGR ! appsink drop=true"
+        f"video/x-raw, format=BGR ! "
+        f"appsink drop=true sync=false max-buffers=2"
     )
 
 def preprocess_image(frame):
@@ -268,6 +271,25 @@ def main():
     
     print("✅ Camera opened successfully!")
     
+    # Warm up camera - discard first frames to stabilize pipeline
+    print("   Warming up camera (discarding initial frames)...")
+    warmup_success = False
+    for i in range(30):  # Try up to 30 frames
+        ret, frame = cap.read()
+        if ret and frame is not None:
+            warmup_success = True
+        time.sleep(0.05)
+    
+    if not warmup_success:
+        print("❌ ERROR: Camera warmup failed - no valid frames received!")
+        print("   Try running: sudo systemctl restart nvargus-daemon")
+        print("   Or reboot: sudo reboot")
+        cap.release()
+        ser.close()
+        sys.exit(1)
+    
+    print("✅ Camera warmed up!")
+    
     # Sensor data storage
     sensor_data = np.zeros(9)
     
@@ -295,11 +317,10 @@ def main():
     print("   Press Ctrl+C to stop")
     print("=" * 60 + "\n")
     
-    # Give camera time to warm up
-    time.sleep(1)
-    
     frame_count = 0
     start_time = time.time()
+    consecutive_failures = 0
+    max_failures = 50  # Exit if too many consecutive failures
     
     try:
         while True:
@@ -307,12 +328,26 @@ def main():
             read_sensors()
             distance = sensor_data[0]
             
+            # Treat 0 or 999 as "no valid reading" - assume clear
+            if distance <= 0 or distance >= 999:
+                distance = 999  # Assume clear path
+            
             # Read camera frame
             ret, frame = cap.read()
-            if not ret:
-                print("⚠️  Camera read failed, retrying...")
-                time.sleep(0.1)
+            if not ret or frame is None:
+                consecutive_failures += 1
+                if consecutive_failures >= max_failures:
+                    print(f"❌ ERROR: {consecutive_failures} consecutive camera failures!")
+                    print("   Camera pipeline broken. Restart daemon or reboot:")
+                    print("   sudo systemctl restart nvargus-daemon")
+                    break
+                if consecutive_failures % 10 == 1:
+                    print(f"⚠️  Camera read failed ({consecutive_failures}/{max_failures})...")
+                time.sleep(0.05)
                 continue
+            
+            # Reset failure counter on success
+            consecutive_failures = 0
             
             # Preprocess image
             img = preprocess_image(frame)
