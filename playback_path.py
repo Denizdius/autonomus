@@ -37,10 +37,6 @@ SPEED_MULTIPLIER = 1.0
 # Safety: Stop if obstacle detected (distance in cm)
 OBSTACLE_STOP_DISTANCE = 5
 
-# 180° Turn Configuration (must match record_path.py setting)
-TURN_180_DURATION = 6.0  # seconds - ADJUST THIS for your robot!
-TURN_SPEED = 255          # Speed for turning
-
 # --- ARDUINO CONNECTION ---
 ser = None
 sensor_distance = 999
@@ -75,26 +71,6 @@ def send_cmd(left, right):
             ser.flush()
         except:
             pass
-
-def do_180_turn():
-    """Perform a 180° turn (swing turn to the right)"""
-    global ser
-    if ser:
-        print("\n🔄 Performing 180° turn...")
-        
-        # Send commands continuously to prevent Arduino watchdog timeout (500ms)
-        start_time = time.time()
-        while time.time() - start_time < TURN_180_DURATION:
-            # Swing turn right: left motor forward, right motor stopped
-            cmd = f"<{TURN_SPEED},0>"
-            ser.write(cmd.encode('utf-8'))
-            ser.flush()
-            time.sleep(0.1)  # Send every 100ms (well within 500ms timeout)
-        
-        ser.write(b"<0,0>")
-        ser.flush()
-        print("✅ Turn complete!\n")
-        time.sleep(0.3)  # Brief pause to stabilize
 
 def read_sensors():
     """Read sensor data from Arduino"""
@@ -340,10 +316,7 @@ def main():
                 if not play_path(to_target_commands, "TO TARGET"):
                     break
                 
-                time.sleep(0.5)  # Brief pause at target
-                
-                # 180° turn before return
-                do_180_turn()
+                time.sleep(1)  # Brief pause at target
                 
                 # Return to base (using recorded return path)
                 if return_commands:
@@ -353,18 +326,14 @@ def main():
                     print("⚠️  No return path - stopping loop")
                     break
                 
-                time.sleep(0.5)  # Brief pause at base
-                
-                # 180° turn to face target again
-                do_180_turn()
+                time.sleep(1)  # Brief pause at base
         
         else:
             # Full round trip: go to target, then return
             if not play_path(to_target_commands, "TO TARGET"):
                 pass
             elif return_commands:
-                time.sleep(0.5)
-                do_180_turn()  # Turn around before return
+                time.sleep(1)
                 play_path(return_commands, "RETURNING TO BASE")
     
     except KeyboardInterrupt:
