@@ -244,7 +244,7 @@ class CameraManager:
         # This provides better image quality than native 640x480 sensor mode
         return (
             "nvarguscamerasrc "
-            "sensor-mode=4 "  # 1280x720@60fps - good quality and performance
+            "sensor-mode=2 "  # 1280x720@60fps - good quality and performance
             "saturation=1.0 "  # Default saturation
             "gainrange=\"16 16\" "  # Fixed gain for consistent exposure
             "ispdigitalgainrange=\"1 1\" "  # Fixed digital gain
@@ -465,7 +465,12 @@ def main():
         print("   This usually means the model architecture doesn't match.")
         print("   Check that IMG_WIDTH and IMG_HEIGHT match your training.")
         sys.exit(1)
-    
+    print("🔥 Warming up GPU (this takes a few seconds)...")
+    dummy_img = torch.zeros((1, 3, IMG_HEIGHT, IMG_WIDTH)).to(device)
+    dummy_sens = torch.zeros((1, 9)).to(device)
+    with torch.no_grad():
+        _ = model(dummy_img, dummy_sens)
+    print("✅ GPU Ready!")
     # Initialize scaler
     scaler = ManualScaler(SCALER_MEAN, SCALER_SCALE)
     print("✅ Scaler initialized")
