@@ -44,14 +44,14 @@ SERIAL_PORT = None  # Auto-detect if None
 BAUD_RATE = 115200
 
 # Driving Parameters
-BASE_SPEED = 140      # Reduced for safety - increase gradually
-STEER_GAIN = 150      # Start conservative, tune based on testing
+BASE_SPEED = 200     # Reduced for safety - increase gradually
+STEER_GAIN = 250    # Start conservative, tune based on testing
 MAX_SPEED = 255
-MIN_SPEED = 80
+MIN_SPEED = 150
 
 # Safety
 OBSTACLE_STOP_DIST = 20
-OBSTACLE_SLOW_DIST = 50
+OBSTACLE_SLOW_DIST = 30
 
 # Image Settings (OPTIMIZED FOR IMX219 Raspberry Pi Camera V2)
 IMG_WIDTH = 640
